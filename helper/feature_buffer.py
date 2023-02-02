@@ -114,7 +114,8 @@ class Buffer(object):
             r2 = dist.irecv(recv_cpu[left], src=left)
             req.put((r2, left))
             if forward:
-                send_cpu[right].copy_(send_gpu[self._selected[right]] / self._ratio[right])
+                # send_cpu[right].copy_(send_gpu[self._selected[right]] / self._ratio[right])
+                send_cpu[right].copy_(send_gpu[self._selected[right]])
             else:
                 send_cpu[right].copy_(send_gpu[self._pl[right]:self._pr[right]])
             r1 = dist.isend(send_cpu[right], dst=right)
@@ -126,7 +127,8 @@ class Buffer(object):
             if forward:
                 recv_gpu[idx].copy_(recv_cpu[idx], non_blocking=True)
             else:
-                send_gpu[self._selected[idx]] += recv_cpu[idx].cuda(non_blocking=True) / self._ratio[idx]
+                # send_gpu[self._selected[idx]] += recv_cpu[idx].cuda(non_blocking=True) / self._ratio[idx]
+                send_gpu[self._selected[idx]] += recv_cpu[idx].cuda(non_blocking=True)
 
     @torch.no_grad()
     def __mpi_all_to_all(self, send, recv, forward=True):
@@ -166,10 +168,14 @@ class Buffer(object):
             if i != rank:
                 grad[self._selected[i]] += self._b_recv[i] / self._ratio[i]
 
+    def set_prefix(self, prefix):
+        self.prefix = prefix
+
     def __grad_hook(self, layer):
         def fn(grad):
             with comm_timer.timer(f'backward_{layer}'):
                 self.__grad_transfer(grad)
+                torch.save(grad.detach().clone(), self.prefix+'b%d.pt' % layer)
             return grad
         return fn
 

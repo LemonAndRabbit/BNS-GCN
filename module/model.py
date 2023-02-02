@@ -39,13 +39,18 @@ class GraphSAGE(GNNBase):
                     self.norm.append(SyncBatchNorm(layer_size[i + 1], train_size))
             use_pp = False
 
-    def forward(self, g, feat, in_deg=None):
+    def forward(self, g, feat, in_deg=None, save_hs=False):
         h = feat
+        hs = []
         for i in range(self.n_layers):
             h = self.dropout(h)
             if i < self.n_layers - self.n_linear:
                 if self.training and (i > 0 or not self.use_pp):
                     h = ctx.buffer.update(i, h)
+
+                    if save_hs == True:
+                        hs.append(h.detach().clone())
+
                 h = self.layers[i](g, h, in_deg)
             else:
                 h = self.layers[i](h)
@@ -55,7 +60,13 @@ class GraphSAGE(GNNBase):
                     h = self.norm[i](h)
                 h = self.activation(h)
 
-        return h
+            if save_hs == True:
+                hs.append(h.detach().clone())
+
+        if save_hs:
+            return h, hs
+        else:
+            return h
 
 
 class GAT(GNNBase):

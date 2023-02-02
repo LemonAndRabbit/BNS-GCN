@@ -14,6 +14,7 @@ def create_parser():
                         help="dropout probability")
     parser.add_argument("--lr", type=float, default=1e-2,
                         help="learning rate")
+    parser.add_argument('--sampler', type=str, default='random')
     parser.add_argument("--sampling-rate", "--sampling_rate", type=float, default=1,
                         help="the sampling rate of BNS-GCN")
     parser.add_argument("--heads", type=int, default=1)

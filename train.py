@@ -189,7 +189,7 @@ def create_model(layer_size, args):
         return GAT(layer_size, F.relu, use_pp=True, heads=args.heads, norm=args.norm, dropout=args.dropout)
 
 
-def select_node(boundary, send_size):
+def select_node(boundary, send_size, sampler='random'):
     rank, size = dist.get_rank(), dist.get_world_size()
     selected = []
     for i in range(size):
@@ -197,9 +197,14 @@ def select_node(boundary, send_size):
             selected.append(None)
             continue
         b = boundary[i]
-        idx = torch.as_tensor(np.random.choice(b.shape[0], send_size[i], replace=False),
-                              dtype=torch.long, device='cuda')
-        selected.append(b[idx])
+        if sampler == 'random':
+            idx = torch.as_tensor(np.random.choice(b.shape[0], send_size[i], replace=False),
+                                dtype=torch.long, device='cuda')
+            selected.append(b[idx])
+        elif sampler == 'first':
+            selected.append(b[:send_size[i]])
+        else:
+            raise NotImplementedError
     return selected
 
 
@@ -265,6 +270,7 @@ def run(graph, node_dict, gpb, args):
     if rank == 0:
         os.makedirs('checkpoint/', exist_ok=True)
         os.makedirs('results/', exist_ok=True)
+        os.makedirs('results/%s_n%d_p%.2f_%s/' % (args.dataset, args.n_partitions, args.sampling_rate, args.sampler), exist_ok=True)
 
     if args.eval:
         if args.inductive is False:
@@ -308,7 +314,8 @@ def run(graph, node_dict, gpb, args):
 
     best_model, best_acc = None, 0
 
-    result_file_name = 'results/%s_n%d_p%.2f.txt' % (args.dataset, args.n_partitions, args.sampling_rate)
+    result_file_name = 'results/%s_n%d_p%.2f_%s/log.txt' % (args.dataset, args.n_partitions, args.sampling_rate, args.sampler)
+    result_folder = 'results/%s_n%d_p%.2f_%s/' % (args.dataset, args.n_partitions, args.sampling_rate, args.sampler)
 
     if args.dataset == 'yelp':
         loss_fcn = torch.nn.BCEWithLogitsLoss(reduction='sum')
@@ -336,8 +343,9 @@ def run(graph, node_dict, gpb, args):
     for epoch in range(args.n_epochs):
 
         t0 = time.time()
-        selected = select_node(boundary, send_size)
+        selected = select_node(boundary, send_size, args.sampler)
         one_hops = data_transfer(selected, recv_shape, tag=TransferTag.NODE, dtype=torch.long)
+        ctx.buffer.set_prefix('/'.join([result_folder, 'r%d_e%d_' % (rank, epoch)]))
         ctx.buffer.set_selected(selected)
 
         g = construct(in_graph, out_graph, pos, one_hops)
@@ -345,7 +353,11 @@ def run(graph, node_dict, gpb, args):
         model.train()
 
         if args.model == 'graphsage':
-            logits = model(g, feat, in_deg)
+            logits, hs = model(g, feat, in_deg, save_hs=True)
+
+            for i, h in enumerate(hs):
+                torch.save(h, '/'.join([result_folder, 'r%d_e%d_h%d.pt' % (rank, epoch, i)]))
+
         elif args.model == 'gat':
             logits = model(g, construct_feat(g.num_nodes('_V'), feat, pos, one_hops))
         else:

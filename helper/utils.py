@@ -2,7 +2,7 @@ import os
 
 import scipy
 import dgl
-from dgl.data import RedditDataset, YelpDataset
+from dgl.data import RedditDataset, YelpDataset, CoraGraphDataset
 from dgl.distributed import partition_graph
 from helper.context import *
 from ogb.nodeproppred import DglNodePropPredDataset
@@ -38,8 +38,13 @@ def load_data(args):
         g = data[0]
     elif args.dataset == 'ogbn-products':
         g = load_ogb_dataset('ogbn-products', args.data_path)
+    elif args.dataset == 'ogbn-arxiv':
+        g = load_ogb_dataset('ogbn-arxiv', args.data_path)
     elif args.dataset == 'ogbn-papers100m':
         g = load_ogb_dataset('ogbn-papers100M', args.data_path)
+    elif args.dataset == 'cora':
+        data = CoraGraphDataset(raw_dir='./dataset/')
+        g = data[0]
     elif args.dataset == 'yelp':
         data = YelpDataset(raw_dir=args.data_path)
         g = data[0]

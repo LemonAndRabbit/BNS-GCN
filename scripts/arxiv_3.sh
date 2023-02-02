@@ -1,0 +1,14 @@
+python main.py \
+  --dataset ogbn-arxiv \
+  --dropout 0.0 \
+  --lr 0.003 \
+  --n-partitions 3 \
+  --n-epochs 500 \
+  --model graphsage \
+  --sampling-rate 1 \
+  --n-layers 3 \
+  --n-hidden 32 \
+  --log-every 10 \
+  --fix-seed \
+  --skip-partition \
+  --use-pp
