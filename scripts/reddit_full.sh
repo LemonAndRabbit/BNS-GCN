@@ -19,6 +19,7 @@ do
       --log-every 10 \
       --inductive \
       --use-pp \
+      --dropon agg\
       |& tee results/reddit_n${N_PARTITIONS}_p${SAMPLING_RATE}_full.txt
   done
 done

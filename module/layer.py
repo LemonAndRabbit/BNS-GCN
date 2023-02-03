@@ -11,7 +11,8 @@ class GraphSAGELayer(nn.Module):
                  in_feats,
                  out_feats,
                  bias=True,
-                 use_pp=False):
+                 use_pp=False,
+                 dropout=0.):
         super(GraphSAGELayer, self).__init__()
         self.use_pp = use_pp
         if self.use_pp:
@@ -19,6 +20,7 @@ class GraphSAGELayer(nn.Module):
         else:
             self.linear1 = nn.Linear(in_feats, out_feats, bias=bias)
             self.linear2 = nn.Linear(in_feats, out_feats, bias=bias)
+        self.dropout = nn.Dropout(p=dropout)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -39,6 +41,7 @@ class GraphSAGELayer(nn.Module):
         with graph.local_scope():
             if self.training:
                 if self.use_pp:
+                    feat = self.dropout(feat)
                     feat = self.linear(feat)
                 else:
                     degs = in_deg.unsqueeze(1)
@@ -48,6 +51,10 @@ class GraphSAGELayer(nn.Module):
                                            fn.sum(msg='m', out='h'),
                                            etype='_E')
                     ah = graph.nodes['_V'].data['h'] / degs
+
+                    feat = self.dropout(feat)
+                    ah = self.dropout(ah)
+
                     feat = self.linear1(feat[0:num_dst]) + self.linear2(ah)
             else:
                 assert in_deg is None
@@ -56,6 +63,10 @@ class GraphSAGELayer(nn.Module):
                 graph.update_all(fn.copy_src(src='h', out='m'),
                                  fn.sum(msg='m', out='h'))
                 ah = graph.ndata.pop('h') / degs
+
+                feat = self.dropout(feat)
+                ah = self.dropout(ah)
+
                 if self.use_pp:
                     feat = self.linear(torch.cat((feat, ah), dim=1))
                 else:

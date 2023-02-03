@@ -183,7 +183,7 @@ def precompute(part, graph, node_dict, boundary, model, gpb, pos):
 
 def create_model(layer_size, args):
     if args.model == 'graphsage':
-        return GraphSAGE(layer_size, F.relu, norm=args.norm, use_pp=args.use_pp, dropout=args.dropout,
+        return GraphSAGE(layer_size, F.relu, norm=args.norm, use_pp=args.use_pp, dropon=args.dropon, dropout=args.dropout,
                          train_size=args.n_train, n_linear=args.n_linear)
     elif args.model == 'gat':
         return GAT(layer_size, F.relu, use_pp=True, heads=args.heads, norm=args.norm, dropout=args.dropout)
